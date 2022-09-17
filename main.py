@@ -1,9 +1,17 @@
 import cv2
+from time import sleep
 
-face_cascade = cv2.CascadeClassifier('data/haarcascade_frontalface_default.xml')
+
+casc_path = 'data/haarcascade_frontalface_default.xml'
+face_cascade = cv2.CascadeClassifier(casc_path)
+
 
 def checkVideo():
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print('Unable to load camera.')
+        sleep(5)
+        pass
 
     while True:
         _, img = cap.read()
