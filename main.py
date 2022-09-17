@@ -1,43 +1,112 @@
 import cv2
+import mediapipe as mp
 from time import sleep
 
-
-casc_path = 'data/haarcascade_frontalface_default.xml'
-face_cascade = cv2.CascadeClassifier(casc_path)
-
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_face_mesh = mp.solutions.face_mesh
 
 def checkVideo():
+    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
     cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print('Unable to load camera.')
-        sleep(5)
-        pass
+    with mp_face_mesh.FaceMesh(
+        max_num_faces=1,
+        refine_landmarks=True,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5) as face_mesh:
+        while cap.isOpened():
+            success, image = cap.read()
+            if not success:
+                print("Ignoring empty camera frame.")
+                continue
 
-    while True:
-        _, img = cap.read()
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4, 0,  [130, 130])
-        print(faces)
-        for (x, y, w, h) in faces:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-       
-        cv2.imshow('img', img)
-        k = cv2.waitKey(30) & 0xff
-        if k==27:
-            break
-            
+
+            image.flags.writeable = True
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            results = face_mesh.process(image)
+
+            image.flags.writeable = True
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            if results.multi_face_landmarks:
+                for face_landmarks in results.multi_face_landmarks:
+                    # mp_drawing.draw_landmarks(
+                    #     image=image,
+                    #     landmark_list=face_landmarks,
+                    #     connections=mp_face_mesh.FACEMESH_TESSELATION,
+                    #     landmark_drawing_spec=None,
+                    #     connection_drawing_spec=mp_drawing_styles
+                    #     .get_default_face_mesh_tesselation_style())
+                    mp_drawing.draw_landmarks(
+                        image=image,
+                        landmark_list=face_landmarks,
+                        connections=mp_face_mesh.FACEMESH_CONTOURS,
+                        landmark_drawing_spec=None,
+                        connection_drawing_spec=mp_drawing_styles
+                        .get_default_face_mesh_contours_style())
+                    # mp_drawing.draw_landmarks(
+                    #     image=image,
+                    #     landmark_list=face_landmarks,
+                    #     connections=mp_face_mesh.FACEMESH_IRISES,
+                    #     landmark_drawing_spec=None,
+                    #     connection_drawing_spec=mp_drawing_styles
+                    #     .get_default_face_mesh_iris_connections_style())
+
+            print(face_landmarks)
+            cv2.imshow('MediaPipe Face Mesh', cv2.flip(image, 1))
+            if cv2.waitKey(5) & 0xFF == 27:
+                break
     cap.release()
 
+
+# For static images:
+IMAGE_FILES = [
+    "samples/anton.jpg",
+    "samples/dima.jpg",
+    "samples/pasha.jpg" ,
+    "samples/sergey.jpg",   
+     "samples/kirill.jpg",   
+     ]
 def checkPhoto():
-    img = cv2.imread('samples/pasha.jpg')
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+    with mp_face_mesh.FaceMesh(
+        static_image_mode=True,
+        max_num_faces=1,
+        refine_landmarks=True,
+        min_detection_confidence=0.5) as face_mesh:
+        for idx, file in enumerate(IMAGE_FILES):
+            image = cv2.imread(file)
+            # Convert the BGR image to RGB before processing.
+            results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-    for (x, y, w, h) in faces:
-        cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            # Print and draw face mesh landmarks on the image.
+            if not results.multi_face_landmarks:
+                continue
+            annotated_image = image.copy()
+            for face_landmarks in results.multi_face_landmarks:
+                print('face_landmarks:', face_landmarks)
+                mp_drawing.draw_landmarks(
+                    image=annotated_image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_TESSELATION,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_tesselation_style())
+                mp_drawing.draw_landmarks(
+                    image=annotated_image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_CONTOURS,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_contours_style())
+                mp_drawing.draw_landmarks(
+                    image=annotated_image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_IRISES,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_iris_connections_style())
+                cv2.imwrite('tmp/annotated_image' + str(idx) + '.png', annotated_image)
 
-    cv2.imshow('img', img)
-    cv2.waitKey()
-
-checkVideo()
-#checkVideo()
+        
+    
+checkPhoto()

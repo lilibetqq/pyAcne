@@ -17,3 +17,4 @@ share/python-wheels/
 *.egg
 
 __pycache__
+tmp
